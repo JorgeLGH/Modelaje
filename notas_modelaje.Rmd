@@ -1,0 +1,422 @@
+---
+title: "Notas de Modelaje de Enfermedades Infecciosas aplicadas en R"
+author: "Jorge Gómez"
+date: "9/8/2021"
+output: 
+    html_document: 
+      fig_height: 8
+      fig_width: 13
+      number_section: yes
+      theme: cerulean
+      toc: yes
+      toc_float:
+        collapsed: no
+        smooth_scroll: yes
+---
+
+# Integración numérica de ecuaciones diferenciales
+
+## Librería `deSolve`
+
+Vamos a intentar resolver las ecuaciones diferenciales con este paquete en R. En particular, debemos de asiganr parámetros numéricos en las ecuaciones, no podemos dejar indicado como beta o cualquier variable sin definir. Vamos a ver las soluciones en formas de rectas, la suma de estas rectas nos vana dar aproximaciones lineales de las curvas; rectas más chicas ajustan mejor las curvas, pero tardan más y requieren mayor poder de cómputo. Aproximación por rectas, dicho de otro modo.
+
+Encontrar curva de solución, no podemnos hacer soluciones analíticas, es decir, debemos de asiganr los números más que resolverlo de forma algebráica simple. Son valores específicos de soluciones con distintos valores de los parámetros que regularmente solo marcamos con sus respectivos símbolos.
+
+
+```{r}
+library(deSolve)
+```
+
+### Atractor de Lorenz
+
+Resolver ecuaciones diferenciales que representa el caos en la atmósfera, conocido como las ecuaciones de Lorenz. Fueron propuestas en el siglo pasado y fueron las primeras en tratar de predecir algún tipo de fenómeno, en este caso cuestiones climáticas, con base en las ecuaciones formuladas. 
+
+$$\dot x = a x +yz$$
+$$\dot y = b(y-z)$$
+$$\dot z = -xy+cy-z $$
+
+Se demostró que pese a empezar con estados iniciales similares, los fenómenos podían variar con base en el tiempo bastante, dado que son variables relativamente aleatorias.
+
+Los atractores simples, circuleres, etc que hemos visto son sencillos, pero puede haber atractores, por ejemplo, tridimensionales que son mucho más complejos y pueden no tener soluciones lineales.
+
+```{r}
+
+## Chaos in the atmosphere
+## Definimos una función que tiene las ecuaciones
+Lorenz <- function(t, state, parameters) { #es tiempo, state (condiciones iniciales), parámetros
+  #el tiempo va a ser definido como ciertos intervalos
+  #state, en nuestro caso de enfermedades, podrían ser número de susceptibles, infectados, etc
+with(as.list(c(state, parameters)), { 
+       # Acá van definidas las ecuaciones (las de arriba, son las de los modelos)
+       dX<- a*X+Y*Z
+       dY<- b*(Y-Z)
+       dZ <- -X * Y + c * Y - Z
+        list(c(dX, dY, dZ))#que los regrese en formato de lista
+      })
+}
+# Acá le damos valores a los parámetros
+parameters <- c(a = -8/3, b = -10, c = 28)#son las que no son nuestras variables
+#está definido como un vector numérico
+
+#Estas son las condiciones iniciales
+state <- c(X = 1, Y = 1, Z = 1)#condiciones iniciales de nuestras variables
+
+#En este vector ponemos el tiempo para evaluar 
+times <- seq(0, 100, by = 0.01)#rango de tiempos en lo que queremos que se evalúe nuestra operación
+
+#Acá hace todo (ode significa *ordinary differential equation*)
+out <- ode(y = state, times = times, func = Lorenz, parms = parameters)#aquí como tal es para la solución de de las ecuaciones
+#como tal, el resultado de ode es una tabla que nos da los valores de nuestras variables en el rango de tiempos que definimos de manera previa
+
+#Graficamos las soluciones, una gráfica por cada cooordenada (variable)
+plot(out,col="blue")
+
+    ## En 3-D
+    library(scatterplot3d)
+
+scatterplot3d(out[,-1], type = "l")
+
+```
+En este caso los atractores son de dimensión fractal, no son como los que habíamos visto de manera sencilla anteriormente.
+
+### Lotka-Volterra
+
+Ejemplificación con modelo sencillo de tipo Lotka-Volterra.
+
+$$\frac{d\ Presa}{dt} = a*Presa-b*Presa*Depredador$$
+$$\frac{d\ Depredador}{dt} = -c*Depredador+ d*Presa*Depredador$$
+Aquí es la función como en el caso de Lorenz.
+
+```{r}
+#Acá se define la función que tiene las ecuaciones diferenciales
+LotkaVolterra <- function(Time, State, Pars) { #otra vez tiempos, estados iniciales y parámetros
+  with(as.list(c(State, Pars)), { #definimos las ecuaciones del modelo
+dPresa <- a*Presa -b*Presa*Depredador
+dDepredador <- d*Presa*Depredador -c*Depredador
+return(list(c(dPresa, dDepredador)))
+})
+}
+```
+Después se definen los parámetros, el tiempo de integración, la integración y las gráficas.
+
+```{r}
+#Vector con los párametros
+#mismos pasos que ejemplocon ecuaciones de Lorenz
+pars <- c(a= 4, b= 2, c= 6 ,d  = 3)  
+condiciones_iniciales <- c(Presa =10, Depredador=2)
+tiempo <- seq(0, 20, by = 1)
+out <- ode(condiciones_iniciales, tiempo, LotkaVolterra, pars) 
+
+# Veamos que contiene el objeto out
+
+head(out)
+tail(out)
+
+## Método de graficación por default
+plot(out)
+
+## Podemos mejorar nuestra gráfica y ponerla en una misma gráfica
+matplot(out[ , 1], out[ , 2:3], type = "l", xlab = "tiempo", ylab = "Población",
+main = "Lotka-Volterra", lwd = 2,lty=1)
+legend("topright", c("presa", "depredador"), col = 1:2,lty=1)
+```
+
+Si queremos sacar una gráfica en pdf sólo rodeamos el código con `pdf() ... dev.off()`
+
+```{r}
+pdf("Mi_Lotka_Volterra.pdf",height = 13,width=21 )
+matplot(out[ , 1], out[ , 2:3], type = "l", xlab = "tiempo", ylab = "Población",
+main = "Lotka-Volterra", lwd = 2,lty=1)
+legend("topright", c("presa", "depredador"), col = 1:2, lty = 1)
+dev.off()
+```
+Finalmente si queremos graficar ``x vs y`
+
+
+```{r}
+matplot(out[ , 2], out[ , 3], type = "l", xlab = "Presa", ylab = "Depredador",
+main = "Lotka-Volterra", lwd = 2,col="blue")
+```
+
+Se ve raro, debido a que las curvas son muy rectas, la forma de corregirlo es usando un tiempo de integración más pequeño, pero es más costoso en tiempo y recursos. Esto se puede cambiar cuando definimos los intervalos de tiempo en nuestra definición de tiempos.
+
+```{r}
+tiempo <- seq(0, 20, by = 0.001)
+out <- ode(condiciones_iniciales, tiempo, LotkaVolterra, pars) 
+```
+
+
+```{r}
+matplot(out[ , 1], out[ , 2:3], type = "l", xlab = "tiempo", ylab = "Población",
+main = "Lotka-Volterra", lwd = 2,lty=1)
+legend("topright", c("presa", "depredador"), col = 1:2, lty = 1)
+matplot(out[ , 2], out[ , 3], type = "l", xlab = "Presa", ylab = "Depredador",
+main = "Lotka-Volterra", lwd = 2,col="blue",lty=1)
+```
+
+
+```{r}
+pdf("Lotka-Volterra2.pdf",height = 13,width = 21)
+matplot(out[ , 1], out[ , 2:3], type = "l", xlab = "tiempo", ylab = "Población",
+main = "Lotka-Volterra", lwd = 2,lty=1)
+legend("topright", c("presa", "depredador"), col = 1:2, lty = 1)
+matplot(out[ , 2], out[ , 3], type = "l", xlab = "Presa", ylab = "Depredador",
+main = "Lotka-Volterra", lwd = 2,col="blue",lty=1)
+dev.off()
+```
+
+```{r}
+pdf("Lotka-Volterra3.pdf",height = 13,width = 21)
+matplot(out[ , 2], out[ , 3], type = "l", xlab = "Presa", ylab = "Depredador",
+main = "Lotka-Volterra", lwd = 2,col="blue")
+dev.off()
+```
+
+
+### SIR sin demografía
+
+Ahora sí podemos resolver las ecuaciones del modelo SIR sin demografía. Las ecuaciones son las ya conocidas.
+
+$$ \dot S = \frac{-\beta SI}{N} $$
+
+$$\dot I= \frac{\beta SI}{N} -\gamma I$$
+$$\dot R = \gamma I$$
+$$R_0=\frac{\beta}{\gamma}$$
+
+
+Acá definimos la función que resuelve las ecuaciones.
+
+```{r}
+SIR <- function(t, state, parameters) {
+with(as.list(c(state, parameters)), { 
+       # Acá van definidas las ecuaciones
+       # Vamos a suponer dependencia de la frecuencia
+       dS<- -beta*S*I/(S+I+R)
+       dI<- beta*S*I/(S+I+R) -gama*I
+       dR<- gama*I
+        list(c(dS, dI, dR))
+      })
+}
+```
+
+En esta parte definimos los prámetros y nuestros intervalos
+
+```{r}
+pars <- c(beta= 4, gama = 2 )  
+condiciones_iniciales <- c(S =999, I=1,R=0)
+tiempo <- seq(0, 20, by = 0.001)
+out <- ode(condiciones_iniciales, tiempo, SIR, pars) 
+head(out)
+
+```
+
+
+
+Ahora sí graficamos
+
+
+```{r}
+matplot(out[ , 1], out[ , 2:4], type = "l", xlab = "tiempo", ylab = "Población",
+main = "SIR", lwd = 2)
+legend("topright", c("Susceptible", "Infectado","Recuperado"), col = 1:3,lty=1:3,cex=0.5)
+```
+
+### Ejemplo/Ejercicio con SIS sin demografía
+
+#### Estado disease free
+En este caso la la R0 debe de tener un valor por debajo de 1.
+
+Definir nuestra función.
+```{r}
+SIS<-function(t, state, parameters){
+  with(as.list(c(state, parameters)), {
+    dS<- -beta*S*I/(S+I)+(gama*I)
+    dI<- beta*S*I/(S+I)-(gama*I)
+    list(c(dS,dI))
+  })
+}
+```
+Definir los parámetros
+```{r}
+pars <- c(beta= 1, gama = 4 )  
+start_condictions <- c(S =999, I=1)
+tiempo <- seq(0, 20, by = 0.001)
+out <- ode(start_condictions, tiempo, SIS, pars) 
+head(out)
+```
+
+```{r}
+matplot(out[ , 1], out[ , 2:3], type = "l", xlab = "tiempo", ylab = "Población",
+main = "SIS", lwd = 2)
+legend("topright", c("Susceptible", "Infectado"), col = 1:3,lty=1:3,cex=0.5)
+```
+
+#### Estado endémico de la enfermedad
+En este caso la la R0 debe de tener un valor por por encima de 1.
+
+Definir nuestra función.
+```{r}
+SIS<-function(t, state, parameters){
+  with(as.list(c(state, parameters)), {
+    dS<- -beta*S*I/(S+I)+(gama*I)
+    dI<- beta*S*I/(S+I)-(gama*I)
+    list(c(dS,dI))
+  })
+}
+```
+Definir los parámetros
+```{r}
+pars <- c(beta= 4, gama = 1 )  
+start_condictions <- c(S =999, I=1)
+tiempo <- seq(0, 20, by = 0.001)
+out <- ode(start_condictions, tiempo, SIS, pars) 
+head(out)
+```
+
+```{r}
+matplot(out[ , 1], out[ , 2:3], type = "l", xlab = "tiempo", ylab = "Población",
+main = "SIS", lwd = 2)
+legend("topright", c("Susceptible", "Infectado"), col = 1:3,lty=1:3,cex=0.5)
+```
+
+### Modelo SIR con demografía
+
+Las ecuaciones cambian ligeramente respecto al modelo anterior sin demografia de SIR.
+
+$$
+\begin{array}{l}
+\dot{S}=\nu - \frac{-\beta SI}{N}  - \mu S\\
+\dot{I}=\frac{\beta SI}{N}  - \mu I - \gamma I\\
+\dot{R}=\gamma I - \mu R\\
+R_0= \frac{\beta}{\gamma + \mu}
+\end{array}
+$$
+
+Ahora resolverlo con `deSolve`
+```{r}
+library(deSolve)
+SIR <- function(t, state, parameters) {
+  with(as.list(c(state, parameters)), { 
+    N<- S+I+R
+    dS<- nu*N-beta*S*I/(S+I+R)-mu*S
+    dI<- beta*S*I/(S+I+R) -gama*I - mu*I
+    dR<- gama*I - mu*R
+    list(c(dS, dI, dR))
+  })
+}
+#this case we'll be doing beta>gamma
+pars <- c(beta= 4, gama = 2, mu=0.1, nu=0.1 )
+condiciones_iniciales <- c(S =999, I=1,R=0)
+tiempo <- seq(0, 20, by = 0.001)
+out <- ode(condiciones_iniciales, tiempo, SIR, pars) 
+head(out)
+matplot(out[ , 1], out[ , 2:4], type = "l", xlab = "tiempo", ylab = "Población",
+        main = "SIS", lwd = 2)
+legend("topright", c("Susceptible", "Infectado", "Recuperado"), col = 1:3,lty=1:3,cex=0.5)
+```
+
+### Modelo SEIR con demografía
+Igualmente hay cambios en las ecuaciones a comparación del modelo sin demografía, tal como se ve a continuación.
+
+$$
+\begin{array}{l}
+\dot{S}=\nu - \frac{-\beta SI}{N}  - \mu S\\
+\dot{E}= \frac{\beta SI}{N} -\delta E  - \mu E\\
+\dot{I}= \delta E - \gamma I - \mu I \\
+\dot{R}=\gamma I - \mu R\\
+\end{array}
+$$
+Resuelto con `deSolve` se ve de este modo.
+
+```{r}
+library(deSolve)
+SEIR <- function(t, state, parameters) {
+  with(as.list(c(state, parameters)), { 
+    N<- S+E+I+R
+    dS<- nu*N-beta*S*I/(S+I+R)-mu*S
+    dE<- beta*S*I/(S+I+R) -mu*E -delta*E
+    dI<- delta*E -gama*I - mu*I
+    dR<- gama*I - mu*R
+    list(c(dS, dI, dR,dE))
+  })
+}
+#Will make it with beta>gama
+pars <- c(beta= 4, gama = 2, mu=0.1, nu=0.1, delta=2 )
+condiciones_iniciales <- c(S =999, I=1,R=0,E=0)
+tiempo <- seq(0, 20, by = 0.001)
+out <- ode(condiciones_iniciales, tiempo, SEIR, pars) 
+head(out)
+matplot(out[ , 1], out[ , 2:5], type = "l", xlab = "tiempo", ylab = "Población",
+        main = "SEIR", lwd = 2)
+legend("topright", c("Susceptible", "Infectado", "Expuesto", "Recuperado"), col = 1:5,lty=1:3,cex=0.5)
+```
+
+
+### Ejercicio completo de modelaje de enfermedad
+
+#### Infecciones con estado de portador crónico. (SICR)
+
+En estas infecciones como hepatitis B y herpes, ua porción de los individuos infectados se vuelven crónicos, es decir, son capaces de infectar con una tasa de más baja transmisión que un infecciosos agudo, pero duran años. Contemplamos un modelo SIR con una dinámica que una porción de los infectados serán crónicos capaces de infectar a una tasa menor que aquellos infectados agudos.
+
+$R_0$ con valores diferentes, elementos aditivos en auqellos individuos infectados con interacciones de infectados crónicos y los agudos, en este caso van a ser una suma que favorece un $R_0$.
+
+Ejercicio consta en escribir los supuestos del modelo:
+
+1. La tasa de transmisión es más baja para los individuos infectados de forma aguda que para individuos crónicos.
+
+2. Ambos individuos pueden infectar (agudos y crónicos).
+
+3. El proceso de infección es independiente de la fuente de infección. (susceptible se vuelve infectado directamente sin importar quién lo infecte, no generas dos tipos de infectados)
+
+4. Un individuo recientemente infectado es altamente contagioso y después se recupera o se vuelve crónico.
+
+*Sistema por compartimentos*
+![Sistema por compartimentos](C:/Users/fotgo/OneDrive/Documentos/R/Modelaje/image_1.jpeg)
+
+El sistema de ecuaciones se describe como lo siguiente:
+$$
+\begin{array}{l}
+\dot{S}=\nu-S \beta(I+\epsilon  C)-\mu S \\
+\dot{I}=S \beta(I+\epsilon  C)-I (\gamma c + \mu  + \gamma (1-c)) = S \beta(I+\epsilon  C) - I(\mu + \gamma)\\
+\dot{C}=\gamma(1-c) I-\mu C \\
+\dot{R}=\gamma c I - \mu R \\
+\end{array}
+$$
+En este caso, los nuevos parámetros que no habíamos usado son los siguientes:
+
+1.- $\epsilon$ = Es la tasa de atenuación. Debe de encontrarse entre $0-1$. El valor entre más cercano a 1, significa que la infección por interacción entre crónicos y suceptibles es casi igual que aquella por infectados agudos; entre más cercano sea su valor a 0, es menor la probabilidad de infección con los crónicos.
+
+2.- $\gamma c$ = es la porción de los infectados que pasarán al compartimento de recuperados
+
+3.- $\gamma (1-c)$ = es la porción de los infectados que pasará a ser crónicos menos la porción de los que pasan a recuperados.
+
+##### Ahora es la parte de realizar las soluciones con la paquetería de `deSolve`
+
+```{r}
+SICR<-function(t, state, parameters){ #all the equations must be correct, check it twice or as many times as necessary
+with(as.list(c(state, parameters)), {
+    N <-S+I+C+R
+    dS <- nu - S*beta*(I+epsilon*C)-mu*S
+    dI <- S*beta*(I+epsilon*C) - I*(mu + gama)
+    dC <- gama*(1-c)*I - mu*C
+    dR <- gama*c*I-mu*R
+    list(c(dS,dI,dC,dR))#must check the list contains all variables, no parameters
+  })  
+}#aquí ya está la función
+
+#next all the conditions to start
+pars <- c(beta= 1, gama = 1, nu= 1, mu=1, c= 1,epsilon= 1)  #check on papers for real parameters
+start_condictions <- c(S =999, I=1, C=0, R=0)#starting conditions 
+tiempo <- seq(0, 20, by = 0.001)#limited time
+out <- ode(start_condictions, tiempo, SICR, pars) 
+head(out)
+```
+
+
+
+
+
+
+
+
+

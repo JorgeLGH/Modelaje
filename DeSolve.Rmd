@@ -1,0 +1,216 @@
+---
+title: "Integración numérica de ecuaciones diferenciales"
+author: "Roberto Álvarez"
+date: "9/16/2020"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    highlight: pygments
+    theme: cerulean
+    toc: yes
+  word_document:
+    toc: yes
+---
+
+# Bibiloteca `deSolve`
+
+R como ya lo saben, es un lenguaje de programación muy versátil. Pueden hacer gráficas, análisis estadísticos, analizar secuencias biológicas, hacer alineamientos, árboles filogenéticos, redes, análisis de datos de secuenciación de nueva geenración como RNA-Seq, de microbioma, epigenética, entre otros.
+
+
+
+En este documento veremos como usar R, principalmente la librería `deSolve` (que significa *differential equations solve*), para resolver ecuaciones diferenciales. En particular, para resolver las ecuaciones  provenientes de modelos matemáticos de enfermedades infecciosas
+
+Primero, como siempre, cargamos la librería 
+
+```{r}
+library(deSolve)
+```
+
+
+
+## Atractor de Lorenz
+
+Por ejemplo, para resolver el conjunto de ecuaciones diferenciales que representa el caos en la atmósfera conocidad como las ecuaciones de Lorenz:
+
+$$\dot x = a x +yz$$
+$$\dot y = b(y-z)$$
+$$\dot z = -xy+cy-z $$
+
+```{r}
+
+## Chaos in the atmosphere
+## Definimos una función que tiene las ecuaciones
+Lorenz <- function(t, state, parameters) {
+with(as.list(c(state, parameters)), { 
+       # Acá van definidas las ecuaciones
+       dX<- a*X+Y*Z
+       dY<- b*(Y-Z)
+       dZ <- -X * Y + c * Y - Z
+        list(c(dX, dY, dZ))
+      })
+}
+# Acá le damos valores a los parámetros
+parameters <- c(a = -8/3, b = -10, c = 28)
+#Estas son las condiciones iniciales
+state <- c(X = 1, Y = 1, Z = 1)
+#En este vector ponemos el tiempo para evaluar 
+times <- seq(0, 100, by = 0.01)
+#Acá hace todo (ode significa *ordinary differential equation*)
+out <- ode(y = state, times = times, func = Lorenz, parms = parameters)
+#Graficamos las soluciones, una gráfica por cada cooordenada (variable)
+plot(out,col="blue")
+    ## En 3-D
+    library(scatterplot3d)
+
+scatterplot3d(out[,-1], type = "l")
+
+```
+
+
+
+## Lotka-Volterra
+
+Acá resolvemos el modelo más simple tipo Lotka-Volterra
+
+$$\frac{d\ Presa}{dt} = a*Presa-b*Presa*Depredador$$
+$$\frac{d\ Depredador}{dt} = -c*Depredador+ d*Presa*Depredador$$
+
+
+```{r}
+#Acá se define la función que tiene las ecuaciones diferenciales
+LotkaVolterra <- function(Time, State, Pars) { 
+  with(as.list(c(State, Pars)), {
+dPresa <- a*Presa -b*Presa*Depredador
+dDepredador <- d*Presa*Depredador -c*Depredador
+return(list(c(dPresa, dDepredador)))
+})
+}
+```
+
+Después se definen los parámetros, el tiempo de integración, la integración y las gráficas
+
+```{r}
+#Vector con los párametros
+pars <- c(a= 4, b= 2, c= 6 ,d  = 3)  
+condiciones_iniciales <- c(Presa =10, Depredador=2)
+tiempo <- seq(0, 20, by = 1)
+out <- ode(condiciones_iniciales, tiempo, LotkaVolterra, pars) 
+
+# Veamos que contiene el objeto out
+
+head(out)
+tail(out)
+
+## Método de graficación por default
+plot(out)
+## Podemos mejorar nuestra gráfica y ponerla en una misma gráfica
+matplot(out[ , 1], out[ , 2:3], type = "l", xlab = "tiempo", ylab = "Población",
+main = "Lotka-Volterra", lwd = 2,lty=1)
+legend("topright", c("presa", "depredador"), col = 1:2,lty=1)
+```
+
+Si queremos sacar una gráfica en pdf sólo rodeamos el código con `pdf() ... dev.off()`
+
+```{r}
+pdf("Mi_Lotka_Volterra.pdf",height = 13,width=21 )
+matplot(out[ , 1], out[ , 2:3], type = "l", xlab = "tiempo", ylab = "Población",
+main = "Lotka-Volterra", lwd = 2,lty=1)
+legend("topright", c("presa", "depredador"), col = 1:2, lty = 1)
+dev.off()
+```
+
+Finalmente si queremos graficar ``x vs y`
+
+
+```{r}
+matplot(out[ , 2], out[ , 3], type = "l", xlab = "Presa", ylab = "Depredador",
+main = "Lotka-Volterra", lwd = 2,col="blue")
+```
+
+Se ve raro, debido a que las curvas son muy rectas, la forma de corregirlo es usando un tiempo de integración más pequeño
+
+```{r}
+tiempo <- seq(0, 20, by = 0.001)
+out <- ode(condiciones_iniciales, tiempo, LotkaVolterra, pars) 
+```
+
+
+```{r}
+matplot(out[ , 1], out[ , 2:3], type = "l", xlab = "tiempo", ylab = "Población",
+main = "Lotka-Volterra", lwd = 2,lty=1)
+legend("topright", c("presa", "depredador"), col = 1:2, lty = 1)
+matplot(out[ , 2], out[ , 3], type = "l", xlab = "Presa", ylab = "Depredador",
+main = "Lotka-Volterra", lwd = 2,col="blue",lty=1)
+```
+
+
+```{r}
+pdf("Lotka-Volterra2.pdf",height = 13,width = 21)
+matplot(out[ , 1], out[ , 2:3], type = "l", xlab = "tiempo", ylab = "Población",
+main = "Lotka-Volterra", lwd = 2,lty=1)
+legend("topright", c("presa", "depredador"), col = 1:2, lty = 1)
+matplot(out[ , 2], out[ , 3], type = "l", xlab = "Presa", ylab = "Depredador",
+main = "Lotka-Volterra", lwd = 2,col="blue",lty=1)
+dev.off()
+```
+
+```{r}
+pdf("Lotka-Volterra3.pdf",height = 13,width = 21)
+matplot(out[ , 2], out[ , 3], type = "l", xlab = "Presa", ylab = "Depredador",
+main = "Lotka-Volterra", lwd = 2,col="blue")
+dev.off()
+```
+
+
+
+
+## SIR sin demografía
+
+Ahora sí podemos resolver las ecuaciones del modelo SIR sin demografía. Las ecuaciones son las ya conocidas
+
+$$ \dot S = -\beta SI $$
+$$\dot I= \beta SI -\gamma I$$
+
+$$\dot R = \gamma I$$
+
+con $$R_0=\frac{\beta}{\gamma}$$
+
+
+Acá definimos la función que resuelve las ecuaciones
+
+```{r}
+SIR <- function(t, state, parameters) {
+with(as.list(c(state, parameters)), { 
+       # Acá van definidas las ecuaciones
+       # Vamos a suponer dependencia de la frecuencia
+       dS<- -beta*S*I/(S+I+R)
+       dI<- beta*S*I/(S+I+R) -gama*I
+       dR<- gama*I
+        list(c(dS, dI, dR))
+      })
+}
+```
+
+
+
+```{r}
+pars <- c(beta= 4, gama = 2 )  
+condiciones_iniciales <- c(S =999, I=1,R=0)
+tiempo <- seq(0, 20, by = 0.001)
+out <- ode(condiciones_iniciales, tiempo, SIR, pars) 
+
+```
+
+
+
+Ahora sí graficamos
+
+
+```{r}
+matplot(out[ , 1], out[ , 2:4], type = "l", xlab = "tiempo", ylab = "Población",
+main = "SIR", lwd = 2)
+legend("topright", c("Susceptible", "Infectado","Recuperado"), col = 1:3,lty=1:3,cex=0.5)
+```
+
+
