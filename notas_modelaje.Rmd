@@ -1,7 +1,7 @@
 ---
 title: "Notas de Modelaje de Enfermedades Infecciosas aplicadas en R"
 author: "Jorge Gómez"
-date: "9/8/2021"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
     html_document: 
       fig_height: 8
@@ -370,7 +370,7 @@ Ejercicio consta en escribir los supuestos del modelo:
 
 4. Un individuo recientemente infectado es altamente contagioso y después se recupera o se vuelve crónico.
 
-*Sistema por compartimentos*
+*Modelo por compartimentos*
 ![Sistema por compartimentos](C:/Users/fotgo/OneDrive/Documentos/R/Modelaje/image_1.jpeg)
 
 El sistema de ecuaciones se describe como lo siguiente:
@@ -412,11 +412,412 @@ out <- ode(start_condictions, tiempo, SICR, pars)
 head(out)
 ```
 
+```{r}
+library(xaringan)
+```
+# Modelos heterogéneos
+
+$$
+\begin{array}{l}
+\dot{S}_{H}=-S_{H} \left(\beta_{HL}I_{L}+\beta_{HH}I_{H}\right) \\
+\dot{S}_{L}=-S_{L} \left(\beta_{LL}I_{L}+\beta_{LH}I_{H}\right) \\
+\dot{I}_{H}=S_{H} \left(\beta_{HL}I_{L}+\beta_{HH}I_{H}\right) \\
+\dot{I}_{L}=S_{L} \left(\beta_{LL}I_{L}+\beta_{LH}I_{H}\right)
+\end{array}
+$$
+## Modelo con categorías de edad
+En etse caso hablamos de modelos cuyos compartimentos ahora se ven afectados por al edad de los individuos. En este caso hipotético, consideramos una población de niños de primaria divididos en dos catergorías, los primeros tres años y el resto. Consideramos que después de un tiempo *n* de años, pasan de un grupo a otro o se gradúan y salen del modelo. Este caso se refiere a un modelaje de influenza en esta población
+$$
+\begin{array}{l}
+\dot{S}_{1}=\nu_1 -S_{1} \left(\beta_{12}I_{2}+\beta_{11}I_{1}\right)-\delta_1 S_1 \\
+\dot{S}_{2}=\nu_2-S_{2} \left(\beta_{22}I_{2}+\beta_{21}I_{1}\right)-\delta_2 S_2+\delta_1 S_1 \\
+\dot{I}_{1}=S_{1} \left(\beta_{12}I_{2}+\beta_{11}I_{1}\right)-\gamma_1I_1-\delta_1 I_1 \\
+\dot{I}_{2}=S_{2} \left(\beta_{22}I_{2}+\beta_{21}I_{1}\right)-\gamma_2I_2-\delta_2 I_2 + \delta_1 I_1\\
+\dot{R}_1=\gamma_1I_1-\delta_1 R_1\\
+\dot{R}_2=\gamma_2I_2-\delta_2 R_2+\delta_1 R_1
+\end{array}
+$$
+
+## Modelo de Clamidia en Koalas
+Hipótesis:
+
+1. Parámetros de tipo ecológico, es decir, dinámica de poblaciones. (*fitness*,competencia por recursos)
+
+2. Atenuación en la fertilidad para las hembras infectadas con clamidia.
+
+3. Interacción es heterosexual.
+
+4. Neonatos no infectados.
+
+Pese a no estar en el modelo, se agrega una cuesstión de mortalidad aumentada en los infectados. Del mismo modo, la baja fertilidad de hembras infectadas significa que el *fitness* de la población tanto de hembras como de machos se ve mermada en relación al número de hembras infectadas. 
+$$
+\begin{array}{l}
+\dot{S}_{m}=rS_h+r\epsilon I_h-rS_mN-\beta_{mh}S_mI_h\\
+\dot{S}_{h}=rS_h+r\epsilon I_h-rS_hN-\beta_{hm}S_hI_m\\
+\dot{I}_{m}=\beta_{mh}S_mI_h-\mu I_m -rI_mN\\
+\dot{I}_{h}=\beta_{hm}S_hI_m-\mu I_h -rI_hN
+\end{array}
+$$
+
+### Con nuevos supuestos para agregar complejidad
+
+5. Agregamos interacciones sexuales homosexuales.
+
+$$
+\begin{array}{l}
+\dot{S}_{m}=rS_h+r\epsilon I_h-S_m(rN+\beta_{mh}I_h+\beta_{mm}I_m)\\
+\dot{S}_{h}=rS_h+r\epsilon I_h-S_h(rN+\beta_{hm}I_m+\beta_{hh}I_h)\\
+\dot{I}_{m}=S_m(\beta_{mh}I_m+\beta_{mm}I_m)-\mu I_m -rI_mN\\
+\dot{I}_{h}=S_h(\beta_{hm}I_m+\beta_{hh}I_h)-\mu I_h -rI_hN
+\end{array}
+$$
+
+# Estimación e inferencia de parámetros a partir de datos
+
+## Estimación de $R_0$
+
+Es el número reproductivo básico. Es un término tomado de la epidemiología del cual se toma en cuenta el número en promedio que un infectado es capaz de infectar otros individuos. Por ejemplo, si un individuo infectado es capaz de infectar 2.5 personas en promedio, ese es el $R_0$ de la enmfermedad que este individuo tenga.
+
+El hecho que tenga un subíndice 0, hace referencia a que si no hay intervenciones, de cualquier índole (cuarentena, medicación, etc.), cómo sería la progresión de la enfermedad; por lo general es el inicio de cualquier dinámica, en especial enfermedades nuevas o emergentes que no tienen algún tipo de control y tienen un crecimiento rápido. Cuando se implementa algún tipo de intervención significativa, tal como cuarentena o medicamentos, se trata de disminuir e interrumpir la dinámica, bajar el efecto del $R_0$, pero como tal el $R_0$ es inherente a la infección en sí y puede ser afectado, pero es algo propio. 
+
+Las intervenciones buscan reducir el valor de este parámetro hacia un valor menor que 1 para cambiar y empujar hacia un punto de equilibrio donde la enfermedad se reduzca o elimine. Cuando las intervenciones se aplican y tratan de empujar este punto de equilibrio, realmente hablamos de un valor de $R_T$, ya no es $R_0$. Se maneja el término de $R_0$ cmo equvalente del $R_T$, pero esto no es correcto, pues el último ya inlcuye las medidas y puede varias dependiendo de su estringencia y eficacia.
+
+Vamos a estimar ahora el valor de nuestro $R_0$ a partir de un modelo sencillo, el SIS.
+$$
+\begin{array}{l}
+\dot{S}= -\beta SI+\gamma I\\
+\dot{I}= \beta SI-\gamma I
+\end{array}
+$$
+
+## Uso de `tidyverse`
+
+Vamos a usar en este caso la librería `tidyverse` ya que es una librería que actúa como ecosistema para otras librerías tales como `ggplot2`. Cada una de las librerías en este ecosistema permite el manejo y representación de los datos con los que trabajamos; entonces se tiene que cargar.
+
+```{r}
+#en caso de no tenerla descargada, use el comando install.packages(tidyverse) está en CRAN
+library(tidyverse)
+```
+
+Veremos ejemplos para descargar tablas y leerlas con las funciones dentro de nuestros paquetes. Podemos realizar operaciones más naturales y sencillas para trabajar con los datos.
+
+```{r}
+#cargar tabala de anotaciones de E. coli
+ann_ecoli_k12<-read_csv("proteins_167_161521.csv") #es una tabla de anotación de la cepa k12 de E. coli
+#NO ES LA TÍPICA DE CARGAR LA TABLA
+#al cargarlo vienen datos que no aparecen en la otra función
+#chr son columnas con caracteres
+#dbl son columnas con datos numéricos que pueden aceptar números decimales
+```
+Para visualizar rápidamente ka tabla que cargamos, en lugar de usar `View`, lo que se usa es el comando `glimpse`que nos da información importante del objeto sin tener que cargar como tal toda la tabla. No se ve mucha ventaja en tablas pequeñas, pero con muchos datos es útil.
+
+```{r}
+glimpse(ann_ecoli_k12)
+```
+
+### Verbos
+
+#### Filtrar
+Se usa para filtrar con base en criterios específicos determinados por el usuario. Usamos para filtrar renglones bajo los criterios seleccionados. Se pueden usar slecciones de combinaciones complejas, incluso operadores booleanos para el filtro.
+
+```{r}
+#filtramos objeto cuyos datos en columna "strand" sean positivos "+"
+positives<-filter(ann_ecoli_k12,Strand=="+")
+
+#podemos ver con glimpse nuestro corte
+glimpse(positives)
+```
+
+El proceso con el uso de `filter` es más rápido que si se quisiera hacer esto de manera manual.
+
+```{r}
+ann_ecoli_k12[which(ann_ecoli_k12$Strand=="+"),]->positives_2
+#comprobar que son iguales
+any(positives != positives_2)
+```
+
+Ahora, el filtro no está limitado a caractertes, podemos hacer rango completos.
+
+```{r}
+filter(ann_ecoli_k12,50 <= Length & Length <=75)
+```
+
+1. ¿Cuántas proteínas están en la cadena negativa y son mayores a 100 aa. ?
+
+```{r}
+glimpse(filter(ann_ecoli_k12,Strand=="-" & Length >= 100))
+```
+
+2. ¿Existen proteínas con tamaño EXACTAMENTE de 100 aa en la cadena negativa?Si es así, específica su nombre.
+
+```{r}
+glimpse(filter(ann_ecoli_k12,Strand=="-" & Length == 100))->idk
+idk$`Protein Name`
+```
+
+3. ¿Cuántas proteínas son mayores a la longitud promedio y cuántas están en la cadena psoitiva y cuántas en la negativa?
+
+```{r}
+glimpse(filter(ann_ecoli_k12, Strand=="+" & Length>mean(Length)))
+glimpse(filter(ann_ecoli_k12, Strand=="-" & Length>mean(Length)))
+```
+#### Seleccionar
+
+Podemos escoger columnas completas. Solo columnas.
+
+```{r}
+#solo estámostrando la columna seleccionada
+select(ann_ecoli_k12,Strand)
+```
+
+Podemos seleccionar combinaciones de columnas.
+
+```{r}
+select(ann_ecoli_k12,c(Locus,Strand))
+```
+
+Igualmente podemos hacer una selección de cuáles columnas no queremos, usamos el signo **-**. Solo se va a quedar con las columnas que no estén con este signo **-**.
+
+```{r}
+select(ann_ecoli_k12,-Strand)
+```
+
+Otro medio de seleccionar puede ser que cumpla con ciertas condiciones que queremos, por ejemplo, ciertos caracteres de inicio.
+
+```{r}
+select(ann_ecoli_k12,starts_with("S"))#toma las columnas que empiecen con la letra "s", no afectado por si es mayúscula o minúscula
+select(ann_ecoli_k12, contains("t"))#toma todas las columnas que en algún punto tengan la letra "t"
+select(ann_ecoli_k12, ends_with("X"))#todas las columnas que terminen en "x", no hay ninguna y eso nos regresa
+
+#puede haber selección de cadenas completas de caracteres
+```
+
+##### Ejercicios
+
+1. Seleccionar todas las columnas de tipo `chr` y todas las de tipo `dbl`.
+
+```{r}
+ann_ecoli_k12 %>% select(where(is.character))
+ann_ecoli_k12 %>% select(where(is.numeric))
+#opción de Cindy
+select(ann_ecoli_k12, where(is.character))
+select(ann_ecoli_k12, where(is.double))
+```
 
 
+2. Quitar todas las columnas con el nombre del gen y/o de la proteína.
+
+```{r}
+select(ann_ecoli_k12, c(Start, Stop, Strand ,GeneID ,Locus ,'Locus tag' ,Length))
+```
 
 
+3. Dejar una tabla con su nombre del gen o proteína y que solo contenga esa información más el strand y el tamaño.
 
+```{r}
+tabla<- select(ann_ecoli_k12, c(Accession,Strand, Length))
+tabla
+```
+
+#### Ordenar
+
+Para hacer orden de las columnas, usamos la función `arrange`. No se limita a numérico, puede ser caracter.
+
+```{r}
+arrange(ann_ecoli_k12, Length)#por default es de menor a mayor. En caso de querer de mayor a menor es con "-" antes de la columna
+arrange(ann_ecoli_k12, -Length)
+arrange(ann_ecoli_k12, Start)
+```
+
+#### Mutate
+
+Podemos generar nuevas variables a partir de inofrmación previamente existente.
+
+```{r}
+mutate(ann_ecoli_k12, Length_nucleotides=Stop-Start)#no modifica el original, se debe de sobreescribir, pero no es muy recomendable, mejor generar un nuevo objeto con las nuevas variables
+```
+
+#### Ejercicios
+
+1. Generar una columna que diga si el tamaño del gen es mayor que el promedio.
+
+```{r}
+kk1<-mutate(ann_ecoli_k12, Length_nucleotides=Stop-Start)
+mutate(kk1, Bigger_than_nc_mean=ifelse(Length_nucleotides>mean(Length_nucleotides),T,F))
+
+#En un solo paso
+mutate(ann_ecoli_k12, Bigger_than_nc_mean=ifelse((Stop-Start)>mean(Stop-Start),T,F))
+```
+
+
+## Uso de datos COVID con `tidyverse`
+
+Se descargaron los datos de esta [página](https://www.gob.mx/salud/documentos/datos-abiertos-152127). Tanto la base de datos abiertos como el diccionario para poder entender qué significan cada una de las claves.
+
+```{r, warning=FALSE, message=FALSE, results='hide'}
+
+# datos_covid_mex<-read.csv("datos_abiertos_covid19/211021COVID19MEXICO.csv")
+# es muy pesado, cargamos todo, entonces vamos a generar un objeto para cargarlo
+# save(datos_covid_mex,file="datos_covid_mex.RData") ya solo lo cargamos
+
+# filtrar para entidad de unidad médica de Querétaro
+load("datos_covid_mex.RData")
+datos_covid_qro<-filter(datos_covid_mex, ENTIDAD_UM==22)
+glimpse(datos_covid_qro)
+#save(datos_covid_qro,file="datos_covid_qro.RData")
+
+# filtrar datos de Guanajuato, son los de entidad en unidad médica
+datos_covid_gto<-filter(datos_covid_mex, ENTIDAD_UM==11)
+glimpse(datos_covid_gto)
+# save(datos_covid_gto,file="datos_covid_gto.RData")
+```
+
+# Ejercicio 
+
+1. Modelo heterogéneo con 2 cepas de un agente infecciosos. Se obtiene inmunidad cruzada completa tras infección con cualquiera de las cepas. La población es única en el sentido que no hay niveles de esta.
+
+$$
+\begin{array}{l}
+\dot{S}= \nu -\beta_1 SI_1-\beta_2 SI_2-\mu S\\
+\dot{I_1}= \beta_1 SI_1-\gamma I_1-\mu I_1\\
+\dot{I_2}= \beta_2 SI_2-\gamma I_2-\mu I_2\\
+\dot{R}=\gamma I_1+\gamma I_2-\mu R
+\end{array}
+$$
+
+Donde la $\nu$ es la tasa de nacimiento/ incorporación a una población sin posibilidad que esté infectado o tenga inmunidad, lo cual lo hace susceptible. Las interacciones entre los dos tipos de infectados son perjudiciales para los susceptibles y generan infectados nuevos de cada cepa; pero se considera que la probabilidad de infección por cada cepa varía, por lo que sus tasas de infección son diferentes, respresentadas con $\beta_1 / \beta_2$. Del mismo modo, las tasas de recuperación de los infectados son diferentes entre cada cepa, por lo que son representadas como $\gamma_1/\gamma_2$, de modo que la cantidad de infectados qu salen de este grupo y pasan a recuperados varía según la cepa; sin embargo, al haber inmunidad cruzada comparten el compartimento de recuperados. Finalmente, todos los grupos tienen una tasa de muerte/salida de la población, representado por $\mu$, el cual multiplica a la población dentro del compartimento para la proporción que sale del sistema. 
+
+Posible valor de $R_0$ global sería $\frac{\beta_1}{\gamma_1+\mu}+\frac{\beta_2}{\gamma_2+\mu}$ 
+
+```{r}
+library(deSolve)
+SIR <- function(t, state, parameters) {
+  with(as.list(c(state, parameters)), { 
+    N<- S+I1+I2+R
+    dS<- nu*N-(beta1*S*I1/N)-(beta2*S*I2/N)-mu*S
+    dI1<- beta1*S*I1/N -gama1*I1 - mu*I1
+    dI2<- beta2*S*I2/N -gama2*I2 - mu*I2
+    dR<- gama1*I1-gama2*I2 - mu*R
+    list(c(dS, dI1, dI2, dR))
+  })
+}
+
+pars <- c(beta1= 1.1, beta2= .9, gama1 = .07, gama2= .1, mu=0.1, nu=0.1 )
+condiciones_iniciales <- c(S =999, I1=1, I2=1,R=0)
+tiempo <- seq(0, 20, by = 0.001)
+out <- ode(condiciones_iniciales, tiempo, SIR, pars) 
+head(out)
+matplot(out[ , 1], out[ , 2:5], type = "l", xlab = "tiempo", ylab = "Población",
+        main = "SIR heterogéneo", lwd = 2)
+legend("topright", c("Susceptible", "Infectado 1", "Infectado 2", "Recuperado"), col = 1:5,lty=1:3,cex=0.5)
+```
+
+2. 
+
+Ecuaciones: 
+
+$$
+\begin{array}{l}
+\dot{S_1}=-S_{1} (\beta_{12}I_{2}+\beta_{11}I_{1}+\mu)+\nu_1 \\
+\dot{S_2}=-S_{2} (\beta_{22}I_{2}+\beta_{21}I_{1}+\mu)+\nu_2 \\
+\dot{I_1}=S_{1} (\beta_{12}I_{2}+\beta_{11}I_{1})-I_1(\delta_1+\mu) \\
+\dot{I_2}=S_{2} (\beta_{22}I_{2}+\beta_{21}I_{1}) -I_2(\delta_2+\mu) \\
+\dot{R_1}=\delta_1I_1 - \mu R_1\\
+\dot{R_2}= \delta_2I_2 -\mu R_2
+\end{array}
+$$
+
+# Modelo por compartimentos para enfermedades transmitidas por vectores
+
+1. Para los vectores (mosquitos) es un modelo SI.
+
+2. Para los humanos se considera modelo SIR.
+
+3. Trnamisión bidireccional, de vector susceptible a humano susceptible.
+
+## Ecuaciones
+
+$$
+\begin{array}{l}
+\dot{S_H}=\nu_H-\beta_{HV}S_HI_V-\mu_H S_H\\
+\dot{I_H}=\beta_{HV}S_HI_V-I_H(\mu_H+\gamma+\lambda_H)\\
+\dot{R_H}=\gamma I_H-\mu_H R\\
+\dot{S_V}=\nu_V-\beta_{VH}S_VI_H-S_V(\mu_V+\lambda_V)\\
+\dot{I_V}=\beta_{VH}S_VI_H-\mu_VI_V
+\end{array}
+$$
+
+## Posible $R_0$
+
+$$R_0=\frac{\beta_{VH}\nu_H}{\mu_H+\gamma+\lambda_H}+\frac{\beta_{HV}\nu_V}{\mu_V+\lambda_V}$$
+
+## Solución numérica
+
+```{r}
+library(deSolve)
+SIR_vector <- function(t, state, parameters) {
+  with(as.list(c(state, parameters)), { 
+    Nh<- Sh+Ih+Rh
+    Nv<- Sv+Iv
+    dSh<- nuh*Nh-(beta1*Sh*Iv/Nh)-muh*S
+    dIh<- beta1*Sh*Iv/Nh -gama*Ih - muh*Ih-lambda1*Ih
+    dR<- gama*Ih - mu*R
+    dSv<- 
+    dIv<- 
+    list(c(dS, dI1, dI2, dR))
+  })
+}
+
+pars <- c(beta1= 1.1, beta2= .9, gama1 = .07, gama2= .1, mu=0.1, nu=0.1 )
+condiciones_iniciales <- c(S =999, I1=1, I2=1,R=0)
+tiempo <- seq(0, 20, by = 0.001)
+out <- ode(condiciones_iniciales, tiempo, SIR_vector, pars) 
+head(out)
+matplot(out[ , 1], out[ , 2:5], type = "l", xlab = "tiempo", ylab = "Población",
+        main = "SIR heterogéneo", lwd = 2)
+legend("topright", c("Susceptible", "Infectado 1", "Infectado 2", "Recuperado"), col = 1:5,lty=1:3,cex=0.5)
+```
+
+# Modelos con estructuras espaciales
+
+Por lo general, tomamos que los entornos etán en well-mixing, donde siempre hay una distribución homogénea espacial, donde hay la misma cantidad aproximada, por ejemplo, de infecciosos en alrededor de cada susceptible, pero realmente no ocurre así. 
+
+Se hace uso de herramientas matemáticas, tales como ecuaciones diferenciales ordinarias donde el tiempo y el espacio son continuos. Otra herramientas son ecuaciones diferenciales parciales donde igual se toman tiempo y espacio continuos. El enfoque de redes puede o no considerar el tiemnpo, pero el espacio es discreto pues la existencia de nodos es inherente. Los autómatas celulares toman en cuenta que tanto el tiempo como el espacio son discretos. Las ecuaciones en 
+
+### Ley de acción de masas
+
+Son escenarios donde el espacio tienen importancia. Importa y se han generado métodos para estructuras espaciales, tales como autómatas celulares.
+
+## Autómatas celulares
+
+John von Neuman lo propone y tiene que ver más con celdas que células. Es un sistema dinámico que cambia a pasos discretos; es decir, puede ser discreto en el espacio o en el tiempo, por ejemplo. 
+
+**Requerimientos/Reglas**
+
+1. Una rejilla/celda que define a las células o individuos.
+2. Un conjunto de valores discretos que puede tomar cada celda (Ej:0,1, S,E,IR, etc.).
+3. Las celdas definen su vecindad y con ello el conjunto de celdas afectarán la evolución de cada celda.
+4. Un conjunto de reglas de actualización de estados.
+
+El espacio importa en cuanto la dinámica, pues existen las delimitaciones espaciales de las celdas, así comoi de las reglas que actúan de modor directo en la actualización de los estados. Las vecindades tienen que ver con los conglomerados de individuos que a su vez afectan las dinámicas dentro de dichos conglomerados.
+
+Lo más sencillo es unidimensional, es decir, una línea recta. Celdas con solo dos vecinos, uno a cada lado (aquellos en extremos se "juntan"). Igualmente por simplicidad asumimos solo dos posibles estados (0,1); aunque debemos de recalcar que es posible que no solo haya dos estados. Se parte de una configuración inicial determinada, donde las celdas definen su propia vecindad, esto con base en el conjunto de reglas de automatización que definimos. Las reglas pueden ser deterministas o probabilísticas, por facilidad en este ejemplo se asumen reglas deterministas.
+
+Las reglas se llaman con sus valores binarios, se pueden hacer con operaciones simples o los paquetes de `R` correspondientes. 
+
+Existen autómatas celulares famosos biológicos, tales como el "game of life", es bidimensional. Su reglas son:
+
+1. Cualquier célula con menos de dos vecinos vivos, muere. (underpopulation)
+
+2. Cualquier célula con dos o tres vecinos vivos, continúa viviendo. (siguiente generación)
+
+3. Cualquier célula que tenga más de tres vecinos, muere. (sobrepoblación)
+
+4. Cualquier célula muerta con exactamente tres vecinos vivos, se vuelve una célula viva. (reproducción)
+
+Las vecindades pueden ser definidas de varios modos, por lo que es importante considerar su definición para ser aplicables las reglas.
+
+Del mismo modo podemos ver esta aplicación con células, en el sentido que se puede ver movimiento celular, diferenciación e incluso división
 
 
 
